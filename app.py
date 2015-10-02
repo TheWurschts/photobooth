@@ -35,6 +35,14 @@ ST_SHOOT = 2
 ST_BACKVIEW = 3
 ST_PRINT = 4
 
+
+def amIOnRpi():
+	try:
+		import RPi
+		return True
+	except:
+		return False
+
 def load_shared_lib(libname):
 # We assume the shared library is present in the same directory as this script.
 	libpath = os.path.dirname(os.path.realpath(__file__))
@@ -63,6 +71,9 @@ class Photo(pg.sprite.Sprite):
 class Photobooth:
 
 	def __init__(self):
+
+		self.__onRpi = amIOnRpi();
+
 		# basic initializations
 		self.__done = False				# Done? Exit.
 		self.__state = ST_IDLE		# global state
@@ -90,7 +101,10 @@ class Photobooth:
 		#prepare screen
 		self.__screen_size = map(int, [self.__screen_width , self.__screen_height])
 		#screen = pg.display.set_mode(self.__screen_size)
-		screen = pg.display.set_mode(self.__screen_size)#, pg.FULLSCREEN)
+		if self.__onRpi == True:
+			screen = pg.FULLSCREEN
+		else:
+			screen = pg.display.set_mode(self.__screen_size)#, pg.FULLSCREEN)
 		pg.display.set_caption("Rocksack's Photobooth")
 
 		# get main surface
@@ -163,7 +177,7 @@ class Photobooth:
 						self.__cnt_start = dt.datetime.now()
 				print('key: ' + str(event.key))
 			if event.type == pg.QUIT:
-				C.close()
+				self.__camera.close()
 				done = True
 
 	def render_live(self, path):

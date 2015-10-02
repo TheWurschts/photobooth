@@ -57,5 +57,5 @@ docs/_build/
 target/
 
 
-**/*.jpg
-**/*.cr2
+*.jpg
+*.cr2
