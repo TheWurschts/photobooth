@@ -102,7 +102,7 @@ class Photobooth:
 		self.__screen_size = map(int, [self.__screen_width , self.__screen_height])
 		#screen = pg.display.set_mode(self.__screen_size)
 		if self.__onRpi == True:
-			screen = pg.FULLSCREEN
+			screen = pg.display.set_mode(self.__screen_size, pg.FULLSCREEN)
 		else:
 			screen = pg.display.set_mode(self.__screen_size)#, pg.FULLSCREEN)
 		pg.display.set_caption("Rocksack's Photobooth")
