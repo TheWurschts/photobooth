@@ -229,6 +229,7 @@ class Camera(object):
         self._leave_locked = False
         _check_result(gp.gp_camera_new(byref(self._cam)))
         self.initialized = False
+        self.cfile = CameraFile()
         if auto_init:
             self.init()
 
@@ -351,7 +352,7 @@ class Camera(object):
             return (path.folder, path.name)
 
     def capture_preview(self, destpath=None):
-        cfile = CameraFile()
+        cfile = self.cfile
 
         ans = 0
         for i in range(1 + retries):
