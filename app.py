@@ -442,7 +442,7 @@ class Photobooth:
 			self.__numberdisplay.setDownNumber(0)
 			diff = dt.datetime.now() - self.__blink_start
 			cnt = self.__blink_sec - diff.seconds
-			self.__serienCount = 0
+			
 			if cnt < 0:
 				self.__pin_dome_out.toggle()
 				# self.__pin_green_out.toggle()
