@@ -584,7 +584,8 @@ class Photobooth:
 			
 			self.__numberdisplay.setDownNumber(self.__count_prints)
 		elif self.__state == ST_PRINT:
-			subprocess.call("lp -d {0} -n{1} {2}".format(self.cfg.get("booth", "printername"), self.__count_prints, self.__lastCollage), shell=True)
+			for pic in range(0, self.__count_prints):
+				subprocess.call("lp -d {0} -n{1} {2}".format(self.cfg.get("booth", "printername"), 2, self.__lastCollage), shell=True)
 			print('print')
 			self.__state = ST_IDLE
 
