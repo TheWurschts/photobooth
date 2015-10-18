@@ -438,6 +438,8 @@ class Photobooth:
 		if self.__state == ST_SLEEP:
 			pass
 		elif self.__state == ST_IDLE:
+			self.__numberdisplay.setTopNumber(0)
+			self.__numberdisplay.setDownNumber(0)
 			diff = dt.datetime.now() - self.__blink_start
 			cnt = self.__blink_sec - diff.seconds
 			self.__serienCount = 0
