@@ -14,11 +14,13 @@ import sys
 import threading
 import time
 import subprocess
-import RPi.GPIO as GPIO
-import max7219.led as led
+import json
+import requests
+
+
 from PIL import Image
 
-
+#5184x3456
 from PseudoCamera import PseudoCamera
 
 BLACK = (0, 0, 0)
@@ -42,17 +44,30 @@ ST_BACKVIEW = 4
 ST_PREPRINT = 5
 ST_PRINT = 6
 
-
-GPIO.setmode(GPIO.BCM)
+GPIO = False
+#RPi = False
+led = False
 
 
 
 def amIOnRpi():
+	global GPIO
+	global led
 	try:
-		import RPi
+		#import RPi
+		import RPi.GPIO as localGPIO
+		GPIO = localGPIO
+		import max7219.led as localled
+		led = localled
 		return True
 	except:
+		from PseudoRpi import GPIO as localGPIO
+		GPIO = localGPIO()
+		from PseudoRpi import LED as localled
+		led = localled()
 		return False
+
+
 
 def load_shared_lib(libname):
 # We assume the shared library is present in the same directory as this script.
@@ -87,7 +102,7 @@ class MAXNumber:
 	def setTopNumber(self, numberInt):
 		try:
 			number = str(numberInt)
-			
+
 			if(len(number)>1):
 				self.__save[0]=int(number[0])
 				self.__save[1]=int(number[1])
@@ -144,7 +159,7 @@ class PBGPIO:
 		else:
 			return False
 	def event_callback(self, channel):
-		# time_stamp       # put in to debounce  
+		# time_stamp       # put in to debounce
 		time_now = time.time()
 		if (time_now - self.__time_stamp) >= 0.3:
 			self.__callback(self.__pinid)
@@ -167,6 +182,8 @@ class Photobooth:
 
 		self.__onRpi = amIOnRpi();
 
+		GPIO.setmode(GPIO.BCM)
+
 		# basic initializations
 		self.__done = False				# Done? Exit.
 		self.__state = ST_IDLE		# global state
@@ -176,7 +193,7 @@ class Photobooth:
 		self.__blink_sec = 0.5
 
 		self.__numberdisplay = MAXNumber()
-		
+
 		self.__startupDateTimeString = dt.datetime.now().strftime("%H%M%S")
 		self.__serienCount = 0
 
@@ -193,7 +210,10 @@ class Photobooth:
 
 		# load config
 		self.cfg = cfgp.ConfigParser()
-		self.cfg.read("booth.cfg")
+		if os.path.isfile("booth.cfg"):
+			self.cfg.read("booth.cfg")
+		else:
+			self.cfg.read("booth_default.cfg")
 
 		self.__cfgs = self.cfg.items("shooting")
 
@@ -202,7 +222,7 @@ class Photobooth:
 		self.__countdown_follow = self.cfg.getint("shooting", "countdown_follow")
 		self.__print_ctdn = self.cfg.getint("shooting", "print_screen")
 		self.__prints_allowed = self.cfg.getint("shooting", "count_of_prints_allowed")
-		
+
 
 		self.__lastCollage = ''
 		self.__absScriptPath = os.path.abspath(os.path.dirname(sys.argv[0]))
@@ -210,7 +230,7 @@ class Photobooth:
 		#if SHOW_STYLING == True:
 		# load style
 		self.__load_style()
-		
+
 		# init pg
 		pg.init()
 
@@ -244,7 +264,7 @@ class Photobooth:
 		if ENABLE_GREENSCREEN == True:
 			self.__bgimage = pg.transform.scale(pg.image.load("gfx/berge.jpg").convert_alpha(), [800, 600])
 
-		
+
 			self.__libps = load_shared_lib("libpyslow")
 			self.__gbf = self.__libps.greenbox
 			self.__gbf.restype = None
@@ -295,7 +315,7 @@ class Photobooth:
 		pg.display.flip()
 
 	def showFullscreenWithoutResize(self, file):
-		
+
 		picture = pg.image.load(file)
 		self.__surface.blit(picture, (0, 0))
 		pg.display.flip()
@@ -347,6 +367,9 @@ class Photobooth:
 				elif event.key == ord('a'):
 					if self.__state == ST_IDLE:
 						self.__state = ST_PRESHOOT
+				elif event.key == ord('p'):
+					if self.__state == ST_PREPRINT:
+						self.__state = ST_PRINT
 				print('key: ' + str(event.key))
 			if event.type == pg.QUIT:
 				self.__camera.close()
@@ -355,7 +378,7 @@ class Photobooth:
 	def render_live(self, path):
 		self.__camera.capture_preview(path)
 
-		
+
 
 		if ENABLE_GREENSCREEN == True:
 			picture = pg.transform.flip(pg.transform.scale(pg.image.load(path).convert_alpha(), self.__screen_size), True, False)
@@ -369,8 +392,6 @@ class Photobooth:
 			picture = pg.transform.flip(pg.transform.scale(pg.image.load(path), self.__screen_size), True, False)
 		self.__surface.blit(picture, (0, 0))
 
-		
-
 	def render_preview(self):
 		pic = len(self.__pics_pos) - self.__cnt_images - 1
 		if ENABLE_GREENSCREEN == True:
@@ -381,11 +402,26 @@ class Photobooth:
 		self.__gbf(rgb, rgb.shape[0], rgb.shape[1])
 		rgb = None
 
-
-
 		self.__surface.blit(picture, (0, 0))
 
-		
+	def print_picture(self):
+		data = {
+			'file': os.path.abspath(self.__lastCollage),
+			'count': self.__count_prints
+		}
+		if self.cfg.get("errorHandling", "pushoveruser") != '' and self.cfg.get("errorHandling", "pushovertoken") != '':
+			data['perroruser'] = self.cfg.get("errorHandling", "pushoveruser")
+			data['perrortoken'] = self.cfg.get("errorHandling", "pushovertoken")
+		#self.__count_prints
+		#self.__lastCollage
+		print(json.dumps(data))
+		try:
+			r = requests.post('http://localhost:38163/setJob', json=json.dumps(data))
+			response = r.json()
+			print(json.dumps(response))
+		except:
+			pass
+
 
 	def __render_result(self):
 		background = pg.Surface(self.__screen_size)
@@ -415,7 +451,7 @@ class Photobooth:
 		background.save('{}'.format(outpath))
 		size = (self.__screen_width, self.__screen_height)
 		background.thumbnail(size,Image.ANTIALIAS)
-		background.save('{}'.format('tmp/preview.jpg'))
+		background.save('{}'.format('preview/preview_tmp.jpg'))
 		print(dt.datetime.now())
 		#
 		# todo render with imagemagick
@@ -431,10 +467,10 @@ class Photobooth:
 		# image.blit(self.__fg, [0, 0])
 		# pg.image.save(image, "{}/image.jpg".format(self.__photopath))
 		# pass
-			
+
 	def render(self):
 		self.__surface.fill([0, 0, 0])
-		
+
 		if self.__state == ST_SLEEP:
 			pass
 		elif self.__state == ST_IDLE:
@@ -442,7 +478,7 @@ class Photobooth:
 			self.__numberdisplay.setDownNumber(0)
 			diff = dt.datetime.now() - self.__blink_start
 			cnt = self.__blink_sec - diff.seconds
-			
+
 			if cnt < 0:
 				self.__pin_dome_out.toggle()
 				# self.__pin_green_out.toggle()
@@ -475,7 +511,7 @@ class Photobooth:
 				self.__surface.blit(lbl_cnt, (300, 40))
 			else:
 
-				
+
 				self.__numberdisplay.setTopNumber(0)
 				self.__camera.capture_image("{0}/image_{1}_{2}_{3}.jpg".format(self.__photopath, self.__startupDateTimeString, self.__serienCount, pic))
 				self.__numberdisplay.setDownNumber(pic+1)
@@ -499,7 +535,7 @@ class Photobooth:
 					pics_pos[0] = self.__pics_pos[pic][0] + 200
 					picture = pg.transform.flip(pg.transform.scale(pg.image.load("preview/preview_{0}.jpg".format(pic)), pics_pos[2:]), True, False)
 					self.__surface.blit(picture, pics_pos[:2])
-				
+
 				if diffms >= time_anim:
 					self.render_preview()
 				elif diffms >= 0:
@@ -556,14 +592,14 @@ class Photobooth:
 			# self.render_live(self.__lastCollage)
 			# self.showFullscreen(self.__lastCollage)
 
-			self.showFullscreenWithoutResize('tmp/preview.jpg')
-			
+			self.showFullscreenWithoutResize('preview/preview_tmp.jpg')
+
 			diff = dt.datetime.now() - self.__blink_start
 			cnt = self.__blink_sec - diff.seconds
 			if cnt < 0:
 				# self.__pin_dome_out.toggle()
 				self.__pin_green_out.toggle()
-				# self.__camera.capture_preview('tmp/preview.jpg')
+				# self.__camera.capture_preview('preview/preview_tmp.jpg')
 				self.__blink_start = dt.datetime.now()
 			# self.__state = ST_IDLE
 
@@ -580,20 +616,23 @@ class Photobooth:
 			else:
 				#todo show text
 				pass
-			
-			
+
+
 			self.__numberdisplay.setDownNumber(self.__count_prints)
 		elif self.__state == ST_PRINT:
-			for pic in range(0, self.__count_prints):
-				subprocess.call("lp -d {0} -n{1} {2}".format(self.cfg.get("booth", "printername"), 2, self.__lastCollage), shell=True)
+			self.print_picture()
+			#for pic in range(0, self.__count_prints):
+			#	subprocess.call("lp -d {0} -n{1} {2}".format(self.cfg.get("booth", "printername"), 2, self.__lastCollage), shell=True)
 			print('print')
 			self.__state = ST_IDLE
 
 
 	def main(self):
-		self.__camera = piggyphoto.Camera()
-		# self.__camera = PseudoCamera()
-		
+		if self.__onRpi == True:
+			self.__camera = piggyphoto.Camera()
+		else:
+			self.__camera = PseudoCamera()
+
 		self.__camera.leave_locked()
 		self.__camera.capture_preview('preview/preview.jpg')
 

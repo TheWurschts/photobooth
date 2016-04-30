@@ -14,18 +14,21 @@ class PseudoCamera(object):
     def __capture(self, path, size):
         surface = pg.Surface(size)
         surface.fill([80, 0, 0])
-        
+
         time = dt.datetime.now().strftime("%H:%M:%S.%f")
-        
+
         text = self.__font.render(time, 1, (1, 200, 0))
         surface.blit(text, [50, 50])
         pg.image.save(surface, path)
-     
+
     def capture_image(self, path):
-        self.__capture(path, [3000, 2000])
-    
+        self.__capture(path, [5184, 3456])
+
     def capture_preview(self, path):
        self.__capture(path, [300, 200])
 
     def leave_locked(self):
+        pass
+
+    def close(self):
         pass
