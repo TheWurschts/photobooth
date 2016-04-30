@@ -14,11 +14,13 @@ import sys
 import threading
 import time
 import subprocess
+import json
+import requests
 
 
 from PIL import Image
 
-
+#5184x3456
 from PseudoCamera import PseudoCamera
 
 BLACK = (0, 0, 0)
@@ -365,6 +367,9 @@ class Photobooth:
 				elif event.key == ord('a'):
 					if self.__state == ST_IDLE:
 						self.__state = ST_PRESHOOT
+				elif event.key == ord('p'):
+					if self.__state == ST_PREPRINT:
+						self.__state = ST_PRINT
 				print('key: ' + str(event.key))
 			if event.type == pg.QUIT:
 				self.__camera.close()
@@ -387,8 +392,6 @@ class Photobooth:
 			picture = pg.transform.flip(pg.transform.scale(pg.image.load(path), self.__screen_size), True, False)
 		self.__surface.blit(picture, (0, 0))
 
-
-
 	def render_preview(self):
 		pic = len(self.__pics_pos) - self.__cnt_images - 1
 		if ENABLE_GREENSCREEN == True:
@@ -399,10 +402,25 @@ class Photobooth:
 		self.__gbf(rgb, rgb.shape[0], rgb.shape[1])
 		rgb = None
 
-
-
 		self.__surface.blit(picture, (0, 0))
 
+	def print_picture(self):
+		data = {
+			'file': os.path.abspath(self.__lastCollage),
+			'count': self.__count_prints
+		}
+		if self.cfg.get("errorHandling", "pushoveruser") != '' and self.cfg.get("errorHandling", "pushovertoken") != '':
+			data['perroruser'] = self.cfg.get("errorHandling", "pushoveruser")
+			data['perrortoken'] = self.cfg.get("errorHandling", "pushovertoken")
+		#self.__count_prints
+		#self.__lastCollage
+		print(json.dumps(data))
+		try:
+			r = requests.post('http://localhost:38163/setJob', json=json.dumps(data))
+			response = r.json()
+			print(json.dumps(response))
+		except:
+			pass
 
 
 	def __render_result(self):
@@ -602,8 +620,9 @@ class Photobooth:
 
 			self.__numberdisplay.setDownNumber(self.__count_prints)
 		elif self.__state == ST_PRINT:
-			for pic in range(0, self.__count_prints):
-				subprocess.call("lp -d {0} -n{1} {2}".format(self.cfg.get("booth", "printername"), 2, self.__lastCollage), shell=True)
+			self.print_picture()
+			#for pic in range(0, self.__count_prints):
+			#	subprocess.call("lp -d {0} -n{1} {2}".format(self.cfg.get("booth", "printername"), 2, self.__lastCollage), shell=True)
 			print('print')
 			self.__state = ST_IDLE
 
