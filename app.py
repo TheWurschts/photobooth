@@ -101,20 +101,28 @@ def makeCollage(data):
 
 
 class myThread (threading.Thread):
-    def __init__(self, threadID, name, type, data):
+    def __init__(self, threadID, name, type, data, object=None):
         threading.Thread.__init__(self)
         self.threadID = threadID
         self.name = name
         self.type = type
         self.data = data
         self.stopThread = False
+        self.object = object
     def run(self):
 		print ("Starting " + self.name)
 		if self.type == 'collage':
 			makeCollage(self.data)
 			pass
-		elif self.type == 'renderLive':
+		elif self.type == 'countdown':
 			while not self.stopThread:
+				diff = dt.datetime.now() - self.data['start']
+				cnt = self.data['cd'] - diff.seconds
+				if cnt > 0:
+					self.object.setTopNumber(cnt)
+				else:
+					self.object.setTopNumber(0)
+					self.stopThread = True
 				pass
 		else:
 			pass
@@ -546,18 +554,38 @@ class Photobooth:
 			self.__mkdir(self.__photopath)
 			self.__cnt_images = len(self.__pics_pos)
 			self.__cnt_start = dt.datetime.now()
+
+
+			self.countdownStartetCounter = 0;
 		elif self.__state == ST_SHOOT:
-			diff = dt.datetime.now() - self.__cnt_start
+			#diff = dt.datetime.now() - self.__cnt_start
 			pic = len(self.__pics_pos) - self.__cnt_images
 			self.render_live("preview/preview_{0}.jpg".format(pic))
 			diff = dt.datetime.now() - self.__cnt_start
 			if(int(pic) != 0):
 				cnt = self.__countdown_follow - diff.seconds
+				if self.countdownStartetCounter == int(pic):
+					self.countdownStartetCounter = self.countdownStartetCounter +1
+					data = {
+						"start":self.__cnt_start,
+						"cd":self.__countdown_follow
+					}
+					self.countdownThread = myThread(2, "countdownThread", "countdown", data, self.__numberdisplay)
+					self.countdownThread.start()
 			else:
 				cnt = self.__countdown - diff.seconds
+				if self.countdownStartetCounter == 0:
+					self.countdownStartetCounter = self.countdownStartetCounter +1
+					data = {
+						"start":self.__cnt_start,
+						"cd":self.__countdown
+					}
+					self.countdownThread = myThread(2, "countdownThread", "countdown", data, self.__numberdisplay)
+					self.countdownThread.start()
 
 			if cnt > 0:
-				self.__numberdisplay.setTopNumber(cnt)
+				pass
+				#self.__numberdisplay.setTopNumber(cnt)
 				#lbl_cnt = self.__cnt_font.render(str(max(0, cnt)), 1, (200, 0, 0))
 				#self.__surface.blit(lbl_cnt, (300, 40))
 			else:
