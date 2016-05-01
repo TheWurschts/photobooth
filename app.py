@@ -17,7 +17,7 @@ import subprocess
 import json
 import requests
 import threading
-
+from pushover import Client as pushClient
 
 from PIL import Image
 
@@ -427,7 +427,7 @@ class Photobooth:
 			if ENABLE_GREENSCREEN == True:
 				picture = pg.transform.flip(pg.transform.scale(pg.image.load(path).convert_alpha(), self.__screen_size), True, False)
 				self.__surface.blit(self.__bgimage, [0, 0])
-	
+
 				rgb = pg.surfarray.pixels2d(picture)
 				self.__gbf(rgb, rgb.shape[0], rgb.shape[1])
 				#self.__zzf(rgb, rgb.shape[0], rgb.shape[1])
@@ -469,66 +469,83 @@ class Photobooth:
 		except:
 			pass
 
+	def callSupport(self):
+		if self.cfg.get("errorHandling", "pushoveruser") != '' and self.cfg.get("errorHandling", "pushovertoken") != '':
+			client = pushClient(self.cfg.get("errorHandling", "pushoveruser"), api_token=self.cfg.get("errorHandling", "pushovertoken"))
+			client.send_message("Support needed.... :(", title="Support needed....")
+	def printLast(self):
+		pass
+	def __button(self, path, x, y, w, h, ic, ac, action=None):
+		mouse = pg.mouse.get_pos()
+		click = pg.mouse.get_pressed()
+		# print(click)
+		if x+w > mouse[0] > x and y+h > mouse[1] > y:
+			if click[0] == 1 and action != None:
+				action()
+		else:
+			pass
+			#pg.draw.rect(self.__surface, ic,(x,y,w,h))
+		self.__surface.blit(pg.image.load('images/'+path), (x, y))
 
 	def __render_result(self):
+		if not hasattr(self, 'collageThread') or (not self.collageThread == None and not self.collageThread.isAlive()):
+			background = pg.Surface(self.__screen_size)
+			background.fill((255, 255, 255))
+			self.__surface.blit(background, (0, 0))
 
-		background = pg.Surface(self.__screen_size)
-		background.fill((255, 255, 255))
-		self.__surface.blit(background, (0, 0))
+			lbl_cnt = self.__cnt_font_medium.render(str('generating'), 1, (200, 0, 0))
+			self.__surface.blit(lbl_cnt, (0, 40))
+			lbl_cnt = self.__cnt_font_medium.render(str('collage...'), 1, (200, 0, 0))
+			self.__surface.blit(lbl_cnt, (0, 150))
+			pg.display.update()
 
-		lbl_cnt = self.__cnt_font_medium.render(str('generating'), 1, (200, 0, 0))
-		self.__surface.blit(lbl_cnt, (0, 40))
-		lbl_cnt = self.__cnt_font_medium.render(str('collage...'), 1, (200, 0, 0))
-		self.__surface.blit(lbl_cnt, (0, 150))
-		pg.display.update()
+			print(dt.datetime.now())
+			outpath = "{0}/collage_{1}_{2}.jpg".format(self.__photopath, self.__startupDateTimeString, self.__serienCount)
+			self.__lastCollage = outpath
 
-		print(dt.datetime.now())
-		outpath = "{0}/collage_{1}_{2}.jpg".format(self.__photopath, self.__startupDateTimeString, self.__serienCount)
-		self.__lastCollage = outpath
+			backgroundPath = '{0}/{1}'.format(self.__absScriptPath, self.__bgimagepath)
+			#background = Image.open(backgroundPath)
 
-		backgroundPath = '{0}/{1}'.format(self.__absScriptPath, self.__bgimagepath)
-		#background = Image.open(backgroundPath)
+			screenSize = (self.__screen_width, self.__screen_height)
+			data = {
+				'backgroundPath':backgroundPath,
+				'outpath':outpath,
+				'pics':[],
+				'screenSize':screenSize,
+				'previewPath':'preview/preview_tmp.jpg'
+			}
 
-		screenSize = (self.__screen_width, self.__screen_height)
-		data = {
-			'backgroundPath':backgroundPath,
-			'outpath':outpath,
-			'pics':[],
-			'screenSize':screenSize,
-			'previewPath':'preview/preview_tmp.jpg'
-		}
-
-		for pic in range(0, self.__num_pics):
-			print("loading")
-			pass
-			picturePath = '{0}/{1}/image_{2}_{3}_{4}.jpg'.format(self.__absScriptPath, self.__photopath, self.__startupDateTimeString, self.__serienCount, pic)
-			#foreground = Image.open(picturePath)
-			size = (int(self.__pics_pos[pic][2])-int(self.__pics_pos[pic][0])), (int(self.__pics_pos[pic][3])-int(self.__pics_pos[pic][1]))
-			#foreground.thumbnail(size,Image.ANTIALIAS)
-			#background.paste(foreground, (int(self.__pics_pos[pic][0]), int(self.__pics_pos[pic][1])))
-			data['pics'].append([{'picturePath':picturePath, 'size':size, 'pos': (int(self.__pics_pos[pic][0]), int(self.__pics_pos[pic][1])) }])
+			for pic in range(0, self.__num_pics):
+				print("loading")
+				pass
+				picturePath = '{0}/{1}/image_{2}_{3}_{4}.jpg'.format(self.__absScriptPath, self.__photopath, self.__startupDateTimeString, self.__serienCount, pic)
+				#foreground = Image.open(picturePath)
+				size = (int(self.__pics_pos[pic][2])-int(self.__pics_pos[pic][0])), (int(self.__pics_pos[pic][3])-int(self.__pics_pos[pic][1]))
+				#foreground.thumbnail(size,Image.ANTIALIAS)
+				#background.paste(foreground, (int(self.__pics_pos[pic][0]), int(self.__pics_pos[pic][1])))
+				data['pics'].append([{'picturePath':picturePath, 'size':size, 'pos': (int(self.__pics_pos[pic][0]), int(self.__pics_pos[pic][1])) }])
 
 
-		self.collageThread = myThread(1, "collageThread", "collage", data)
-		self.collageThread.start()
-		#background.save('{}'.format(outpath))
-		#background.thumbnail(screenSize,Image.ANTIALIAS)
-		#background.save('{}'.format('preview/preview_tmp.jpg'))
-		print(dt.datetime.now())
-		#
-		# todo render with imagemagick
-		#
-		# image = pg.Surface(self.__resolution)
-		# image.fill(self.__bgcolor)
-		# for pic in range(0, self.__num_pics):
-		# 	rect = [0, 0, 0, 0]
-		# 	for i in range(0, 4):
-		# 		rect[i] = int(self.__pics_pos[pic][i] * self.__resolution[i & 1] / self.__view_box[i | 2])
-		# 	img = pg.transform.scale(pg.image.load("{0}/image_{1}.jpg".format(self.__photopath, pic)), rect[2:])
-		# 	image.blit(img, rect[:2])
-		# image.blit(self.__fg, [0, 0])
-		# pg.image.save(image, "{}/image.jpg".format(self.__photopath))
-		# pass
+			self.collageThread = myThread(1, "collageThread", "collage", data)
+			self.collageThread.start()
+			#background.save('{}'.format(outpath))
+			#background.thumbnail(screenSize,Image.ANTIALIAS)
+			#background.save('{}'.format('preview/preview_tmp.jpg'))
+			print(dt.datetime.now())
+			#
+			# todo render with imagemagick
+			#
+			# image = pg.Surface(self.__resolution)
+			# image.fill(self.__bgcolor)
+			# for pic in range(0, self.__num_pics):
+			# 	rect = [0, 0, 0, 0]
+			# 	for i in range(0, 4):
+			# 		rect[i] = int(self.__pics_pos[pic][i] * self.__resolution[i & 1] / self.__view_box[i | 2])
+			# 	img = pg.transform.scale(pg.image.load("{0}/image_{1}.jpg".format(self.__photopath, pic)), rect[2:])
+			# 	image.blit(img, rect[:2])
+			# image.blit(self.__fg, [0, 0])
+			# pg.image.save(image, "{}/image.jpg".format(self.__photopath))
+			# pass
 
 	def render(self):
 		self.__surface.fill([0, 0, 0])
@@ -536,6 +553,10 @@ class Photobooth:
 		if self.__state == ST_SLEEP:
 			pass
 		elif self.__state == ST_IDLE:
+			try:
+				os.remove('preview/preview_tmp.jpg')
+			except:
+				pass
 			self.__numberdisplay.setTopNumber(0)
 			self.__numberdisplay.setDownNumber(0)
 			diff = dt.datetime.now() - self.__blink_start
@@ -550,6 +571,9 @@ class Photobooth:
 				self.__blink_start = dt.datetime.now()
 
 			self.render_live("preview/preview.jpg")
+			self.__button("but_support.png",0,0,70,70,(0,200,0),(0,255,0), self.callSupport)
+			self.__button("but_printLast.png",0,70,70,70,(200,0,0),(255,0,0), self.printLast)
+
 		elif self.__state == ST_PRESHOOT:
 			self.__state = ST_SHOOT
 			self.__serienCount = self.__serienCount+1
@@ -673,7 +697,10 @@ class Photobooth:
 
 			if not self.collageThread.isAlive():
 				self.collageThread = None
-				self.__state = ST_PREPRINT
+				if os.path.isfile('preview/preview_tmp.jpg'):
+					self.__state = ST_PREPRINT
+				else:
+					self.__render_result()
 
 		elif self.__state == ST_PREPRINT:
 			# self.render_live(self.__lastCollage)
