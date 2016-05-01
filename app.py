@@ -18,6 +18,8 @@ import json
 import requests
 import threading
 from pushover import Client as pushClient
+from tinydb import TinyDB, Query
+from operator import attrgetter
 
 from PIL import Image
 
@@ -95,6 +97,7 @@ def makeCollage(data):
 		zw = None
 	im.save(data['outpath'])
 	im.resize(data['screenSize']).save(data['previewPath'])
+	im.resize((370,250)).save(data['previewMiniPath'])
 	im = None
 	pass
 
@@ -136,6 +139,9 @@ class MAXNumber:
 		self.__device = led.sevensegment()
 		self.__save = [0,0,0]
 		self.write()
+		self.initialize()
+	def initialize(self):
+		pass
 	def setDownNumber(self,numberInt):
 		try:
 			number = str(numberInt)
@@ -238,6 +244,8 @@ class Photobooth:
 
 		self.__numberdisplay = MAXNumber()
 		self.idleRenderStarted = False;
+		self.notificationActive = False;
+		self.notification = {}
 
 		self.__startupDateTimeString = dt.datetime.now().strftime("%H%M%S")
 		self.__serienCount = 0
@@ -282,6 +290,9 @@ class Photobooth:
 		self.__screen_width = self.cfg.getint("booth", "screen_width")
 		self.__screen_height = self.cfg.getint("booth", "screen_height")
 
+		self.__screen_leftWidth = 70
+		self.__screen_rightWidth = self.__screen_width - self.__screen_leftWidth
+
 		#prepare screen
 		self.__screen_size = map(int, [self.__screen_width , self.__screen_height])
 		#screen = pg.display.set_mode(self.__screen_size)
@@ -295,10 +306,13 @@ class Photobooth:
 		pg.mouse.set_visible(False)
 		# get main surface
 		self.__surface = pg.display.get_surface()
+		self.__leftSurface = pg.Surface((70, self.__screen_height))
+		self.__rightSurface = pg.Surface((self.__screen_width-70, self.__screen_height))
 
 		# font for writing countdown numbers
 		self.__cnt_font = pg.font.SysFont("monospace", 400)
 		self.__cnt_font_medium = pg.font.SysFont("monospace", 100)
+		self.__cnt_font_roboto_message = pg.font.SysFont("Roboto-Regular", 60)
 
 		# use clock to limit framerate
 		self.__clock = pg.time.Clock()
@@ -420,6 +434,13 @@ class Photobooth:
 				self.__camera.close()
 				done = True
 
+	def render_live_right(self, path):
+		try:
+			self.__camera.capture_preview(path)
+			picture = pg.transform.flip(pg.transform.scale(pg.image.load(path), (self.__screen_size[0]-70, self.__screen_size[1])), True, False)
+			self.__rightSurface.blit(picture, (0, 0))
+		except:
+			pass
 	def render_live(self, path):
 		try:
 			self.__camera.capture_preview(path)
@@ -452,9 +473,12 @@ class Photobooth:
 		self.__surface.blit(picture, (0, 0))
 
 	def print_picture(self):
+		send_print(os.path.abspath(self.__lastCollage), self.__count_prints)
+
+	def send_print(self, file, count):
 		data = {
-			'file': os.path.abspath(self.__lastCollage),
-			'count': self.__count_prints
+			'file': file,
+			'count': count
 		}
 		if self.cfg.get("errorHandling", "pushoveruser") != '' and self.cfg.get("errorHandling", "pushovertoken") != '':
 			data['perroruser'] = self.cfg.get("errorHandling", "pushoveruser")
@@ -465,6 +489,8 @@ class Photobooth:
 		try:
 			r = requests.post('http://localhost:38163/setJob', json=json.dumps(data))
 			response = r.json()
+			Data = Query();
+			self.db.update({'printid': response.id}, Data.pictureid == "{0}_{1}".format(self.__startupDateTimeString, self.__serienCount))
 			print(json.dumps(response))
 		except:
 			pass
@@ -473,19 +499,47 @@ class Photobooth:
 		if self.cfg.get("errorHandling", "pushoveruser") != '' and self.cfg.get("errorHandling", "pushovertoken") != '':
 			client = pushClient(self.cfg.get("errorHandling", "pushoveruser"), api_token=self.cfg.get("errorHandling", "pushovertoken"))
 			client.send_message("Support needed.... :(", title="Support needed....")
+
+	def extract_time(self, json):
+	    try:
+	        return int(json['time'])
+	    except KeyError:
+	        return 0
+
 	def printLast(self):
+		print(self.db.all()[0]['time'])
+		elements = sorted(self.db.all(), key=self.extract_time, reverse=True)
+		print(elements[0])
+		self.send_print(os.path.abspath(elements[0]['file']), 1)
 		pass
-	def __button(self, path, x, y, w, h, ic, ac, action=None):
+
+	def __button(self, path, x, y, w, h, ic, ac, msg='',action=None):
 		mouse = pg.mouse.get_pos()
 		click = pg.mouse.get_pressed()
 		# print(click)
 		if x+w > mouse[0] > x and y+h > mouse[1] > y:
+			if click[0] == 1:
+				pg.draw.rect(self.__leftSurface, ic,(x,y,w,h))
+			else:
+				self.__leftSurface.blit(pg.image.load('images/'+path), (x, y))
 			if click[0] == 1 and action != None:
+				self.notification['time'] = int(time.time())
+				self.notification['msg'] = msg
 				action()
 		else:
+			self.__leftSurface.blit(pg.image.load('images/'+path), (x, y))
 			pass
-			#pg.draw.rect(self.__surface, ic,(x,y,w,h))
-		self.__surface.blit(pg.image.load('images/'+path), (x, y))
+
+	def __notification(self):
+		now = int(time.time())
+		try:
+			if self.notification['time'] + 10 > now:
+				pg.draw.rect(self.__rightSurface, (0,0,0), (0,0,self.__screen_rightWidth,70))
+				print(self.notification['msg'])
+				lbl_cnt = self.__cnt_font_roboto_message.render(str(self.notification['msg']), 1, (200, 200, 200))
+				self.__rightSurface.blit(lbl_cnt, (20, 10))
+		except:
+			pass
 
 	def __render_result(self):
 		if not hasattr(self, 'collageThread') or (not self.collageThread == None and not self.collageThread.isAlive()):
@@ -512,6 +566,7 @@ class Photobooth:
 				'outpath':outpath,
 				'pics':[],
 				'screenSize':screenSize,
+				'previewMiniPath':"{0}/collage_mini_{1}_{2}.jpg".format(self.__photopath, self.__startupDateTimeString, self.__serienCount),
 				'previewPath':'preview/preview_tmp.jpg'
 			}
 
@@ -570,9 +625,15 @@ class Photobooth:
 				# self.__numberdisplay.allPlusOne()
 				self.__blink_start = dt.datetime.now()
 
-			self.render_live("preview/preview.jpg")
-			self.__button("but_support.png",0,0,70,70,(0,200,0),(0,255,0), self.callSupport)
-			self.__button("but_printLast.png",0,70,70,70,(200,0,0),(255,0,0), self.printLast)
+			self.render_live_right("preview/preview.jpg")
+
+
+			self.__notification()
+
+			self.__button("but_support.png",0,0,70,70,(0,200,0),(0,255,0), 'Support wurde gerufen' ,self.callSupport)
+			self.__button("but_printLast.png",0,70,70,70,(200,0,0),(255,0,0), 'Letzte Collage gedruckt', self.printLast)
+			self.__surface.blit(self.__leftSurface,(0,0))
+			self.__surface.blit(self.__rightSurface,(70,0))
 
 		elif self.__state == ST_PRESHOOT:
 			self.__state = ST_SHOOT
@@ -582,7 +643,7 @@ class Photobooth:
 			self.__mkdir(self.__photopath)
 			self.__cnt_images = len(self.__pics_pos)
 			self.__cnt_start = dt.datetime.now()
-
+			self.db.insert({"time":int(time.time()),"file":"{0}/collage_{1}_{2}.jpg".format(self.__photopath, self.__startupDateTimeString, self.__serienCount)})
 
 			self.countdownStartetCounter = 0;
 		elif self.__state == ST_SHOOT:
@@ -749,14 +810,17 @@ class Photobooth:
 
 		self.__camera.leave_locked()
 		self.__camera.capture_preview('preview/preview.jpg')
-
+		self.db = TinyDB('db.json')
 		# -------- Main Program Loop -----------
 		while not self.__done:
-			self.event_loop()
-			self.render()
-			if self.__state != ST_PREPRINT:
-				pg.display.update()
-			self.__clock.tick(self.__fps)
+			try:
+				self.event_loop()
+				self.render()
+				if self.__state != ST_PREPRINT:
+					pg.display.update()
+				self.__clock.tick(self.__fps)
+			except:
+				pass
 
 		pg.quit()
 		GPIO.cleanup()
