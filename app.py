@@ -824,14 +824,14 @@ class Photobooth:
 		self.db = TinyDB('db.json')
 		# -------- Main Program Loop -----------
 		while not self.__done:
-			# try:
+			try:
 				self.event_loop()
 				self.render()
 				if self.__state != ST_PREPRINT:
 					pg.display.update()
 				self.__clock.tick(self.__fps)
-			# except:
-			# 	pass
+			except:
+				pass
 
 		pg.quit()
 		GPIO.cleanup()
