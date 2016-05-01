@@ -376,21 +376,24 @@ class Photobooth:
 				done = True
 
 	def render_live(self, path):
-		self.__camera.capture_preview(path)
+		try:
+			self.__camera.capture_preview(path)
 
 
 
-		if ENABLE_GREENSCREEN == True:
-			picture = pg.transform.flip(pg.transform.scale(pg.image.load(path).convert_alpha(), self.__screen_size), True, False)
-			self.__surface.blit(self.__bgimage, [0, 0])
-
-			rgb = pg.surfarray.pixels2d(picture)
-			self.__gbf(rgb, rgb.shape[0], rgb.shape[1])
-			#self.__zzf(rgb, rgb.shape[0], rgb.shape[1])
-			rgb = None
-		else:
-			picture = pg.transform.flip(pg.transform.scale(pg.image.load(path), self.__screen_size), True, False)
-		self.__surface.blit(picture, (0, 0))
+			if ENABLE_GREENSCREEN == True:
+				picture = pg.transform.flip(pg.transform.scale(pg.image.load(path).convert_alpha(), self.__screen_size), True, False)
+				self.__surface.blit(self.__bgimage, [0, 0])
+	
+				rgb = pg.surfarray.pixels2d(picture)
+				self.__gbf(rgb, rgb.shape[0], rgb.shape[1])
+				#self.__zzf(rgb, rgb.shape[0], rgb.shape[1])
+				rgb = None
+			else:
+				picture = pg.transform.flip(pg.transform.scale(pg.image.load(path), self.__screen_size), True, False)
+			self.__surface.blit(picture, (0, 0))
+		except:
+			pass
 
 	def render_preview(self):
 		pic = len(self.__pics_pos) - self.__cnt_images - 1
@@ -439,13 +442,18 @@ class Photobooth:
 		self.__lastCollage = outpath
 		pstring = list()
 		background = Image.open('{0}/{1}'.format(self.__absScriptPath, self.__bgimagepath))
-
+		print("bg loaded")
 		for pic in range(0, self.__num_pics):
+			print("loading")
 			pass
 			foreground = Image.open('{0}/{1}/image_{2}_{3}_{4}.jpg'.format(self.__absScriptPath, self.__photopath, self.__startupDateTimeString, self.__serienCount, pic))
+			print("1")
 			size = (int(self.__pics_pos[pic][2])-int(self.__pics_pos[pic][0])), (int(self.__pics_pos[pic][3])-int(self.__pics_pos[pic][1]))
+			print("2")
 			foreground.thumbnail(size,Image.ANTIALIAS)
+			print("3")
 			background.paste(foreground, (int(self.__pics_pos[pic][0]), int(self.__pics_pos[pic][1])))
+			print("printForAus")
 
 
 		background.save('{}'.format(outpath))
