@@ -284,6 +284,10 @@ class Photobooth:
 		# load style
 		self.__load_style()
 
+		# init mousebuttons
+		self.__MB_down = False
+		self.__MB_pos = (0,0)
+
 		# init pg
 		pg.init()
 
@@ -398,6 +402,7 @@ class Photobooth:
 					self.__count_prints = 1
 
 	def event_loop(self):
+		pg.event.pump()
 		# if(self.__pin_dome_in.get()):
 		# 	if self.__state == ST_IDLE:
 		# 		self.__state = ST_PRESHOOT
@@ -430,6 +435,12 @@ class Photobooth:
 					if self.__state == ST_PREPRINT:
 						self.__state = ST_PRINT
 				print('key: ' + str(event.key))
+			elif event.type == pg.MOUSEBUTTONDOWN:
+				self.__MB_down = True
+				self.__MB_pos = event.pos
+			elif event.type == pg.MOUSEBUTTONUP:
+				self.__MB_down = False
+				self.__MB_pos = event.pos
 			if event.type == pg.QUIT:
 				self.__camera.close()
 				done = True
@@ -514,15 +525,15 @@ class Photobooth:
 		pass
 
 	def __button(self, path, x, y, w, h, ic, ac, msg='',action=None):
-		mouse = pg.mouse.get_pos()
-		click = pg.mouse.get_pressed()
+		mouse = self.__MB_pos
+		click = self.__MB_down
 		# print(click)
 		if x+w > mouse[0] > x and y+h > mouse[1] > y:
-			if click[0] == 1:
+			if self.__MB_down:
 				pg.draw.rect(self.__leftSurface, ic,(x,y,w,h))
 			else:
 				self.__leftSurface.blit(pg.image.load('images/'+path), (x, y))
-			if click[0] == 1 and action != None:
+			if self.__MB_down and action != None:
 				self.notification['time'] = int(time.time())
 				self.notification['msg'] = msg
 				action()
@@ -625,11 +636,13 @@ class Photobooth:
 				# self.__numberdisplay.allPlusOne()
 				self.__blink_start = dt.datetime.now()
 
-			self.__notification()
+			self.render_live_right("preview/preview.jpg")
 
+			self.__notification()
+			pg.event.pump()
 			self.__button("but_support.png",0,0,70,70,(0,200,0),(0,255,0), 'Support wurde gerufen' ,self.callSupport)
 			self.__button("but_printLast.png",0,70,70,70,(200,0,0),(255,0,0), 'Letzte Collage gedruckt', self.printLast)
-			self.render_live_right("preview/preview.jpg")
+
 			self.__surface.blit(self.__leftSurface,(0,0))
 			self.__surface.blit(self.__rightSurface,(70,0))
 
@@ -811,14 +824,14 @@ class Photobooth:
 		self.db = TinyDB('db.json')
 		# -------- Main Program Loop -----------
 		while not self.__done:
-			try:
+			# try:
 				self.event_loop()
 				self.render()
 				if self.__state != ST_PREPRINT:
 					pg.display.update()
 				self.__clock.tick(self.__fps)
-			except:
-				pass
+			# except:
+			# 	pass
 
 		pg.quit()
 		GPIO.cleanup()
