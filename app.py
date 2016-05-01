@@ -421,19 +421,22 @@ class Photobooth:
 				done = True
 
 	def render_live(self, path):
-		self.__camera.capture_preview(path)
+		try:
+			self.__camera.capture_preview(path)
 
-		if ENABLE_GREENSCREEN == True:
-			picture = pg.transform.flip(pg.transform.scale(pg.image.load(path).convert_alpha(), that.__screen_size), True, False)
-			self.__surface.blit(self.__bgimage, [0, 0])
-
-			rgb = pg.surfarray.pixels2d(picture)
-			self.__gbf(rgb, rgb.shape[0], rgb.shape[1])
-			#self.__zzf(rgb, rgb.shape[0], rgb.shape[1])
-			rgb = None
-		else:
-			picture = pg.transform.flip(pg.transform.scale(pg.image.load(path), self.__screen_size), True, False)
-		self.__surface.blit(picture, (0, 0))
+			if ENABLE_GREENSCREEN == True:
+				picture = pg.transform.flip(pg.transform.scale(pg.image.load(path).convert_alpha(), self.__screen_size), True, False)
+				self.__surface.blit(self.__bgimage, [0, 0])
+	
+				rgb = pg.surfarray.pixels2d(picture)
+				self.__gbf(rgb, rgb.shape[0], rgb.shape[1])
+				#self.__zzf(rgb, rgb.shape[0], rgb.shape[1])
+				rgb = None
+			else:
+				picture = pg.transform.flip(pg.transform.scale(pg.image.load(path), self.__screen_size), True, False)
+			self.__surface.blit(picture, (0, 0))
+		except:
+			pass
 
 
 	def render_preview(self):
@@ -496,6 +499,7 @@ class Photobooth:
 		}
 
 		for pic in range(0, self.__num_pics):
+			print("loading")
 			pass
 			picturePath = '{0}/{1}/image_{2}_{3}_{4}.jpg'.format(self.__absScriptPath, self.__photopath, self.__startupDateTimeString, self.__serienCount, pic)
 			#foreground = Image.open(picturePath)
