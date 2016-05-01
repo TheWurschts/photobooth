@@ -307,7 +307,8 @@ class Photobooth:
 		pg.display.set_caption("Rocksack's Photobooth")
 
 
-		pg.mouse.set_visible(False)
+		#pg.mouse.set_visible(False)
+		pg.mouse.set_pos((0,self.__screen_height))
 		# get main surface
 		self.__surface = pg.display.get_surface()
 		self.__leftSurface = pg.Surface((70, self.__screen_height))
