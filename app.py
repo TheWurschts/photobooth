@@ -625,13 +625,11 @@ class Photobooth:
 				# self.__numberdisplay.allPlusOne()
 				self.__blink_start = dt.datetime.now()
 
-			self.render_live_right("preview/preview.jpg")
-
-
 			self.__notification()
 
 			self.__button("but_support.png",0,0,70,70,(0,200,0),(0,255,0), 'Support wurde gerufen' ,self.callSupport)
 			self.__button("but_printLast.png",0,70,70,70,(200,0,0),(255,0,0), 'Letzte Collage gedruckt', self.printLast)
+			self.render_live_right("preview/preview.jpg")
 			self.__surface.blit(self.__leftSurface,(0,0))
 			self.__surface.blit(self.__rightSurface,(70,0))
 
