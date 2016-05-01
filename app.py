@@ -16,6 +16,7 @@ import time
 import subprocess
 import json
 import requests
+import threading
 
 
 from PIL import Image
@@ -42,12 +43,12 @@ ST_PRESHOOT = 2
 ST_SHOOT = 3
 ST_BACKVIEW = 4
 ST_PREPRINT = 5
-ST_PRINT = 6
+ST_GENCOLLAGE = 6
+ST_PRINT = 7
 
 GPIO = False
 #RPi = False
 led = False
-
 
 
 def amIOnRpi():
@@ -86,6 +87,41 @@ def load_shared_lib(libname):
 
 	return ctypes.CDLL(libpath)
 
+def makeCollage(data):
+	im = Image.open(data['backgroundPath'])
+	for pic in range(0, len(data['pics'])):
+		zw = Image.open(data['pics'][pic][0]['picturePath'])
+		im.paste(zw.resize(data['pics'][pic][0]['size']), data['pics'][pic][0]['pos'])
+		zw = None
+	im.save(data['outpath'])
+	im.resize(data['screenSize']).save(data['previewPath'])
+	im = None
+	pass
+
+
+
+class myThread (threading.Thread):
+    def __init__(self, threadID, name, type, data):
+        threading.Thread.__init__(self)
+        self.threadID = threadID
+        self.name = name
+        self.type = type
+        self.data = data
+        self.stopThread = False
+    def run(self):
+		print ("Starting " + self.name)
+		if self.type == 'collage':
+			makeCollage(self.data)
+			pass
+		elif self.type == 'renderLive':
+			while not self.stopThread:
+				pass
+		else:
+			pass
+		print ("Exiting " + self.name)
+
+    def setStop():
+		self.stopThread = True
 
 class MAXNumber:
 	def __init__(self):
@@ -193,6 +229,7 @@ class Photobooth:
 		self.__blink_sec = 0.5
 
 		self.__numberdisplay = MAXNumber()
+		self.idleRenderStarted = False;
 
 		self.__startupDateTimeString = dt.datetime.now().strftime("%H%M%S")
 		self.__serienCount = 0
@@ -379,8 +416,6 @@ class Photobooth:
 		try:
 			self.__camera.capture_preview(path)
 
-
-
 			if ENABLE_GREENSCREEN == True:
 				picture = pg.transform.flip(pg.transform.scale(pg.image.load(path).convert_alpha(), self.__screen_size), True, False)
 				self.__surface.blit(self.__bgimage, [0, 0])
@@ -394,6 +429,7 @@ class Photobooth:
 			self.__surface.blit(picture, (0, 0))
 		except:
 			pass
+
 
 	def render_preview(self):
 		pic = len(self.__pics_pos) - self.__cnt_images - 1
@@ -427,6 +463,7 @@ class Photobooth:
 
 
 	def __render_result(self):
+
 		background = pg.Surface(self.__screen_size)
 		background.fill((255, 255, 255))
 		self.__surface.blit(background, (0, 0))
@@ -440,26 +477,35 @@ class Photobooth:
 		print(dt.datetime.now())
 		outpath = "{0}/collage_{1}_{2}.jpg".format(self.__photopath, self.__startupDateTimeString, self.__serienCount)
 		self.__lastCollage = outpath
-		pstring = list()
-		background = Image.open('{0}/{1}'.format(self.__absScriptPath, self.__bgimagepath))
-		print("bg loaded")
+
+		backgroundPath = '{0}/{1}'.format(self.__absScriptPath, self.__bgimagepath)
+		#background = Image.open(backgroundPath)
+
+		screenSize = (self.__screen_width, self.__screen_height)
+		data = {
+			'backgroundPath':backgroundPath,
+			'outpath':outpath,
+			'pics':[],
+			'screenSize':screenSize,
+			'previewPath':'preview/preview_tmp.jpg'
+		}
+
 		for pic in range(0, self.__num_pics):
 			print("loading")
 			pass
-			foreground = Image.open('{0}/{1}/image_{2}_{3}_{4}.jpg'.format(self.__absScriptPath, self.__photopath, self.__startupDateTimeString, self.__serienCount, pic))
-			print("1")
+			picturePath = '{0}/{1}/image_{2}_{3}_{4}.jpg'.format(self.__absScriptPath, self.__photopath, self.__startupDateTimeString, self.__serienCount, pic)
+			#foreground = Image.open(picturePath)
 			size = (int(self.__pics_pos[pic][2])-int(self.__pics_pos[pic][0])), (int(self.__pics_pos[pic][3])-int(self.__pics_pos[pic][1]))
-			print("2")
-			foreground.thumbnail(size,Image.ANTIALIAS)
-			print("3")
-			background.paste(foreground, (int(self.__pics_pos[pic][0]), int(self.__pics_pos[pic][1])))
-			print("printForAus")
+			#foreground.thumbnail(size,Image.ANTIALIAS)
+			#background.paste(foreground, (int(self.__pics_pos[pic][0]), int(self.__pics_pos[pic][1])))
+			data['pics'].append([{'picturePath':picturePath, 'size':size, 'pos': (int(self.__pics_pos[pic][0]), int(self.__pics_pos[pic][1])) }])
 
 
-		background.save('{}'.format(outpath))
-		size = (self.__screen_width, self.__screen_height)
-		background.thumbnail(size,Image.ANTIALIAS)
-		background.save('{}'.format('preview/preview_tmp.jpg'))
+		self.collageThread = myThread(1, "collageThread", "collage", data)
+		self.collageThread.start()
+		#background.save('{}'.format(outpath))
+		#background.thumbnail(screenSize,Image.ANTIALIAS)
+		#background.save('{}'.format('preview/preview_tmp.jpg'))
 		print(dt.datetime.now())
 		#
 		# todo render with imagemagick
@@ -513,13 +559,12 @@ class Photobooth:
 				cnt = self.__countdown_follow - diff.seconds
 			else:
 				cnt = self.__countdown - diff.seconds
+
 			if cnt > 0:
 				self.__numberdisplay.setTopNumber(cnt)
-				lbl_cnt = self.__cnt_font.render(str(max(0, cnt)), 1, (200, 0, 0))
-				self.__surface.blit(lbl_cnt, (300, 40))
+				#lbl_cnt = self.__cnt_font.render(str(max(0, cnt)), 1, (200, 0, 0))
+				#self.__surface.blit(lbl_cnt, (300, 40))
 			else:
-
-
 				self.__numberdisplay.setTopNumber(0)
 				self.__camera.capture_image("{0}/image_{1}_{2}_{3}.jpg".format(self.__photopath, self.__startupDateTimeString, self.__serienCount, pic))
 				self.__numberdisplay.setDownNumber(pic+1)
@@ -590,12 +635,18 @@ class Photobooth:
 						self.__state = ST_SHOOT
 						self.__cnt_start = dt.datetime.now()
 					else:
-
 						self.__render_result()
-						self.__state = ST_PREPRINT
+						self.__state = ST_GENCOLLAGE
 						self.__blink_start = dt.datetime.now()
 						self.__print_start = dt.datetime.now()
 						self.__count_prints = 1
+
+		elif self.__state == ST_GENCOLLAGE:
+
+			if not self.collageThread.isAlive():
+				self.collageThread = None
+				self.__state = ST_PREPRINT
+
 		elif self.__state == ST_PREPRINT:
 			# self.render_live(self.__lastCollage)
 			# self.showFullscreen(self.__lastCollage)
