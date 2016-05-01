@@ -485,7 +485,7 @@ class Photobooth:
 		self.__surface.blit(picture, (0, 0))
 
 	def print_picture(self):
-		send_print(os.path.abspath(self.__lastCollage), self.__count_prints)
+		self.send_print(os.path.abspath(self.__lastCollage), self.__count_prints)
 
 	def send_print(self, file, count):
 		data = {
