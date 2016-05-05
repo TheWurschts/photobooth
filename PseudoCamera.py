@@ -22,7 +22,7 @@ class PseudoCamera(object):
         pg.image.save(surface, path)
 
     def capture_image(self, path):
-        self.__capture(path, [5184, 3456])
+        self.__capture(path, [2592, 1728])
 
     def capture_preview(self, path):
        self.__capture(path, [5184, 3456])

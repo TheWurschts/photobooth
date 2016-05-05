@@ -91,10 +91,18 @@ def load_shared_lib(libname):
 
 def makeCollage(data):
 	im = Image.open(data['backgroundPath'])
+	# print('2')
 	for pic in range(0, len(data['pics'])):
+		# print('5')
 		zw = Image.open(data['pics'][pic][0]['picturePath'])
-		im.paste(zw.resize(data['pics'][pic][0]['size']), data['pics'][pic][0]['pos'])
+		# print('6')
+		# print(data['pics'][pic][0]['size'])
+		zwzw = zw.resize(data['pics'][pic][0]['size'])
+		# print('8')
+		im.paste(zwzw, data['pics'][pic][0]['pos'])
+		# print('7')
 		zw = None
+	# print('1')
 	im.save(data['outpath'])
 	im.resize(data['screenSize']).save(data['previewPath'])
 	im.resize((370,250)).save(data['previewMiniPath'])
@@ -255,7 +263,7 @@ class Photobooth:
 		self.__pin_orange_top_in = PBGPIO(16,'IN', self.button_pressed)
 		self.__pin_orange_bottom_in = PBGPIO(22,'IN', self.button_pressed)
 		self.__pin_green_in = PBGPIO(4,'IN', self.button_pressed)
-		
+
 # IN
 # orange top : 22
 # orange bottom: 4
@@ -323,6 +331,8 @@ class Photobooth:
 		# font for writing countdown numbers
 		self.__cnt_font = pg.font.SysFont("monospace", 400)
 		self.__cnt_font_medium = pg.font.SysFont("monospace", 100)
+
+		self.__cnt_font_roboto_medium = pg.font.SysFont("Roboto-Regular", 100)
 		self.__cnt_font_roboto_message = pg.font.SysFont("Roboto-Regular", 60)
 
 		# use clock to limit framerate
@@ -559,17 +569,18 @@ class Photobooth:
 		except:
 			pass
 
-	def __render_result(self):
-		if not hasattr(self, 'collageThread') or (not self.collageThread == None and not self.collageThread.isAlive()):
-			background = pg.Surface(self.__screen_size)
-			background.fill((255, 255, 255))
-			self.__surface.blit(background, (0, 0))
+	def __render_generating_text(self):
+		background = pg.Surface(self.__screen_size)
+		background.fill((255, 255, 255))
+		self.__surface.blit(background, (0, 0))
 
-			lbl_cnt = self.__cnt_font_medium.render(str('generating'), 1, (200, 0, 0))
-			self.__surface.blit(lbl_cnt, (0, 40))
-			lbl_cnt = self.__cnt_font_medium.render(str('collage...'), 1, (200, 0, 0))
-			self.__surface.blit(lbl_cnt, (0, 150))
-			pg.display.update()
+		lbl_cnt = self.__cnt_font_roboto_medium.render(str('generating'), 1, (200, 0, 0))
+		self.__surface.blit(lbl_cnt, (0, 40))
+		lbl_cnt = self.__cnt_font_roboto_medium.render(str('collage...'), 1, (200, 0, 0))
+		self.__surface.blit(lbl_cnt, (0, 150))
+		pg.display.update()
+	def __render_result(self):
+		if not hasattr(self, 'collageThread') or self.collageThread == None or (self.collageThread != None and not self.collageThread.isAlive()):
 
 			print(dt.datetime.now())
 			outpath = "{0}/collage_{1}_{2}.jpg".format(self.__photopath, self.__startupDateTimeString, self.__serienCount)
@@ -766,7 +777,8 @@ class Photobooth:
 						self.__state = ST_SHOOT
 						self.__cnt_start = dt.datetime.now()
 					else:
-						self.__render_result()
+						# self.__render_result()
+						self.collageThread = None
 						self.__state = ST_GENCOLLAGE
 						self.__blink_start = dt.datetime.now()
 						self.__print_start = dt.datetime.now()
@@ -774,7 +786,8 @@ class Photobooth:
 
 		elif self.__state == ST_GENCOLLAGE:
 
-			if not self.collageThread.isAlive():
+			self.__render_generating_text()
+			if self.collageThread == None or not self.collageThread.isAlive():
 				self.collageThread = None
 				if os.path.isfile('preview/preview_tmp.jpg'):
 					self.__state = ST_PREPRINT
