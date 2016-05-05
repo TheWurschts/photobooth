@@ -804,7 +804,8 @@ class Photobooth:
 			cnt = self.__blink_sec - diff.seconds
 			if cnt < 0:
 				# self.__pin_dome_out.toggle()
-				self.__pin_green_out.toggle()
+				# self.__pin_green_out.toggle()
+				self.__pin_orange_top_out.toggle()
 				# self.__camera.capture_preview('preview/preview_tmp.jpg')
 				self.__blink_start = dt.datetime.now()
 			# self.__state = ST_IDLE
@@ -817,7 +818,7 @@ class Photobooth:
 				self.__numberdisplay.setTopNumber(0)
 				self.__numberdisplay.setDownNumber(0)
 				self.__state = ST_IDLE
-				self.__pin_green_out.reset()
+				self.__pin_orange_top_out.reset()
 				pass
 			else:
 				#todo show text
