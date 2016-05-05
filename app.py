@@ -260,9 +260,9 @@ class Photobooth:
 
 		#config IN/OUT
 		self.__pin_dome_in = PBGPIO(17,'IN',self.button_pressed)
-		self.__pin_orange_top_in = PBGPIO(16,'IN', self.button_pressed)
-		self.__pin_orange_bottom_in = PBGPIO(22,'IN', self.button_pressed)
-		self.__pin_green_in = PBGPIO(4,'IN', self.button_pressed)
+		self.__pin_orange_top_in = PBGPIO(4,'IN', self.button_pressed)
+		self.__pin_orange_bottom_in = PBGPIO(16,'IN', self.button_pressed)
+		self.__pin_green_in = PBGPIO(22,'IN', self.button_pressed)
 
 # IN
 # orange top : 22
