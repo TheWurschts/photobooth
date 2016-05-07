@@ -290,6 +290,15 @@ class Photobooth:
 		self.__print_ctdn = self.cfg.getint("shooting", "print_screen")
 		self.__prints_allowed = self.cfg.getint("shooting", "count_of_prints_allowed")
 
+		self.__downloadurl = None
+		try:
+			self.__downloadurl = self.cfg.get("shooting", "downloadurl")
+		except:
+			pass
+
+
+
+
 
 		self.__lastCollage = ''
 		self.__absScriptPath = os.path.abspath(os.path.dirname(sys.argv[0]))
@@ -334,6 +343,7 @@ class Photobooth:
 
 		self.__cnt_font_roboto_medium = pg.font.SysFont("Roboto-Regular", 100)
 		self.__cnt_font_roboto_message = pg.font.SysFont("Roboto-Regular", 60)
+		self.__cnt_font_roboto_message_sm = pg.font.SysFont("monospace", 20)
 
 		# use clock to limit framerate
 		self.__clock = pg.time.Clock()
@@ -641,6 +651,9 @@ class Photobooth:
 				os.remove('preview/preview_tmp.jpg')
 			except:
 				pass
+			self.__leftSurface = pg.Surface((70, self.__screen_height))
+			self.__rightSurface = pg.Surface((self.__screen_width-70, self.__screen_height))
+
 			self.__numberdisplay.setTopNumber(0)
 			self.__numberdisplay.setDownNumber(0)
 			diff = dt.datetime.now() - self.__blink_start
@@ -660,6 +673,10 @@ class Photobooth:
 			pg.event.pump()
 			self.__button("but_support.png",0,0,70,70,(0,200,0),(0,255,0), 'Support wurde gerufen' ,self.callSupport)
 			self.__button("but_printLast.png",0,70,70,70,(200,0,0),(255,0,0), 'Letzte Collage gedruckt', self.printLast)
+			if self.__downloadurl != None:
+				lbl_cnt = self.__cnt_font_roboto_message_sm.render(str(self.__downloadurl), 1, (200, 200, 200))
+				lbl_cnt = pg.transform.rotate(lbl_cnt, 90)
+				self.__leftSurface.blit(lbl_cnt, (24, self.__screen_height-lbl_cnt.get_height()-20))
 
 			self.__surface.blit(self.__leftSurface,(0,0))
 			self.__surface.blit(self.__rightSurface,(70,0))
